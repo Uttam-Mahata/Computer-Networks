@@ -17,6 +17,12 @@ int main() {
 
     char sendMessage[200];
     char receiveMessage[200];
+    char serverIP[20];
+    
+    // Get server IP from user
+    printf("Enter server IP address: ");
+    fgets(serverIP, sizeof(serverIP), stdin);
+    serverIP[strcspn(serverIP, "\n")] = 0;  // Remove newline
 
     // Predefined Text to be sent to the server
     strcpy(sendMessage, "Hello World!");
@@ -36,7 +42,7 @@ int main() {
     serverAddress.sin_port = htons(serverPort);
 
     // Internet Address
-    serverAddress.sin_addr.s_addr = inet_addr("10.2.81.238");
+    serverAddress.sin_addr.s_addr = inet_addr(serverIP);  // Use input IP address
 
     if(connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
         printf("Connection failed\n");

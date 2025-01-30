@@ -13,6 +13,12 @@ int main() {
     int clientSocket;
     struct sockaddr_in serverAddress;
     char message[200];
+    char serverIP[20];
+
+    // Get server IP from user
+    printf("Enter server IP address: ");
+    fgets(serverIP, sizeof(serverIP), stdin);
+    serverIP[strcspn(serverIP, "\n")] = 0;  // Remove newline
 
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if(clientSocket < 0) {
@@ -22,7 +28,7 @@ int main() {
 
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(PORT);
-    serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serverAddress.sin_addr.s_addr = inet_addr(serverIP);  // Use input IP address
 
     if(connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
         printf("Connection failed\n");
