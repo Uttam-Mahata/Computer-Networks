@@ -1,8 +1,9 @@
-# TCP Chat Application
+# TCP Chat & Time Server Applications
 
-A simple TCP-based chat application implemented in C with two versions:
+A collection of TCP-based applications implemented in C:
 - Version 1: Simple message exchange
 - Version 2: Interactive chat session
+- Time Server: Server time request/response
 
 ## Prerequisites
 
@@ -17,7 +18,9 @@ A simple TCP-based chat application implemented in C with two versions:
 ├── chat_app_v1.c        # Server application (Version 1)
 ├── client_chat_app_v1.c # Client application (Version 1)
 ├── chat_app_v2.c        # Server application (Version 2)
-└── client_chat_app_v2.c # Client application (Version 2)
+├── client_chat_app_v2.c # Client application (Version 2)
+├── time_server.c        # Time server application
+└── time_client.c        # Time client application
 ```
 
 ## Version 1: Simple Message Exchange
@@ -67,6 +70,36 @@ gcc client_chat_app_v2.c -o client_v2
 ./client_v2
 ```
 
+## Time Server Application
+
+This version implements a simple time server where:
+- Client sends "What's the time?" message
+- Server responds with its current time
+- Client displays the received time
+
+### Compilation
+```bash
+gcc time_server.c -o time_server
+gcc time_client.c -o time_client
+```
+
+### Running
+1. Start time server:
+```bash
+./time_server
+```
+2. In another terminal, start time client:
+```bash
+./time_client
+```
+3. Enter the server's IP address when prompted
+
+### Protocol
+1. Connection establishment
+2. Client sends "What's the time?" message
+3. Server responds with current time
+4. Connection termination
+
 ## Configuration
 
 ### Default Settings
@@ -105,4 +138,5 @@ The application handles basic errors including:
 - Always start the server before the client
 - Version 2 requires alternating messages between client and server
 - Type "Bye" to end the chat session
+- Time server automatically closes connection after sending time
 - Make sure to use correct server IP address in client applications
