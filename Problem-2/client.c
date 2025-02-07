@@ -5,7 +5,7 @@
 #include <arpa/inet.h>
 
 #define PORT 8081
-#define SERVER_IP "10.2.1.40" // Replace with server's IP
+#define SERVER_IP "10.2.1.40"
 #define BUFFER_SIZE 1024
 
 int main() {

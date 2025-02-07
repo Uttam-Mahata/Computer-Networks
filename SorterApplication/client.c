@@ -7,8 +7,8 @@
 #include <arpa/inet.h>
 
 int main(int argc, char *argv[]) {
-    if (argc < 4) {
-        printf("Usage: %s <ip> <port> <num1> [num2] [num3] ...\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <ip> <port>\n", argv[0]);
         exit(1);
     }
 
@@ -33,8 +33,26 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    // Get number of elements from user
+    uint16_t num_elements;
+    printf("Enter the number of elements: ");
+    scanf("%hu", &num_elements);
+
+    // Allocate array for all numbers
+    int *numbers = malloc(num_elements * sizeof(int));
+    if (!numbers) {
+        perror("Memory allocation failed");
+        close(sock_fd);
+        exit(1);
+    }
+
+    // Get all numbers at once
+    printf("Enter %d numbers:\n", num_elements);
+    for(int i = 0; i < num_elements; i++) {
+        scanf("%d", &numbers[i]);
+    }
+
     // Send number of elements (2 bytes)
-    uint16_t num_elements = argc - 3;
     uint16_t send_size = htons(num_elements);
     if (send(sock_fd, &send_size, sizeof(uint16_t), 0) != sizeof(uint16_t)) {
         perror("Error sending number of elements");
@@ -42,40 +60,33 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // Send each number (4 bytes each)
-    printf("Sending %d numbers: ", num_elements);
-    for(int i = 3; i < argc; i++) {
-        uint32_t num = htonl(atoi(argv[i]));
-        if (send(sock_fd, &num, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
-            perror("Error sending number");
-            close(sock_fd);
-            exit(1);
-        }
-        printf("%d ", atoi(argv[i]));
+    // Send all numbers in one go
+    for(int i = 0; i < num_elements; i++) {
+        uint32_t network_num = htonl(numbers[i]);
+        numbers[i] = network_num;
     }
-    printf("\n");
-
-    // Receive sorted array
-    uint16_t received_size;
-    if (recv(sock_fd, &received_size, sizeof(uint16_t), MSG_WAITALL) != sizeof(uint16_t)) {
-        perror("Error receiving result size");
+    if (send(sock_fd, numbers, num_elements * sizeof(uint32_t), 0) != num_elements * sizeof(uint32_t)) {
+        perror("Error sending numbers");
+        free(numbers);
         close(sock_fd);
         exit(1);
     }
-    received_size = ntohs(received_size);
 
-    printf("Receiving %d sorted numbers: ", received_size);
-    for(int i = 0; i < received_size; i++) {
-        uint32_t num;
-        if (recv(sock_fd, &num, sizeof(uint32_t), MSG_WAITALL) != sizeof(uint32_t)) {
-            perror("Error receiving sorted number");
-            close(sock_fd);
-            exit(1);
-        }
-        printf("%d ", ntohl(num));
+    // Receive sorted array
+    if (recv(sock_fd, numbers, num_elements * sizeof(uint32_t), MSG_WAITALL) != num_elements * sizeof(uint32_t)) {
+        perror("Error receiving sorted numbers");
+        free(numbers);
+        close(sock_fd);
+        exit(1);
+    }
+
+    printf("Sorted numbers: ");
+    for(int i = 0; i < num_elements; i++) {
+        printf("%d ", ntohl(numbers[i]));
     }
     printf("\n");
 
+    free(numbers);
     close(sock_fd);
     return 0;
 }

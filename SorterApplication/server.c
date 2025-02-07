@@ -78,35 +78,33 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        int received_count = 0;
+        // Receive all numbers in one go
+        ssize_t expected_bytes = num_elements * sizeof(uint32_t);
+        bytes_received = recv(client_fd, numbers, expected_bytes, MSG_WAITALL);
+        if (bytes_received != expected_bytes) {
+            perror("Error receiving numbers");
+            free(numbers);
+            close(client_fd);
+            continue;
+        }
+
+        // Convert network byte order to host byte order
         for(int i = 0; i < num_elements; i++) {
-            uint32_t num;
-            bytes_received = recv(client_fd, &num, sizeof(uint32_t), MSG_WAITALL);
-            if (bytes_received != sizeof(uint32_t)) {
-                printf("Error receiving number %d\n", i+1);
-                break;
-            }
-            numbers[i] = ntohl(num);
-            received_count++;
+            numbers[i] = ntohl(((uint32_t*)numbers)[i]);
             printf("Received number %d: %d\n", i+1, numbers[i]);
         }
 
-        if (received_count == num_elements) {
-            printf("Sorting %d numbers...\n", num_elements);
-            insertion_sort(numbers, num_elements);
-            
-            printf("Sending sorted numbers back...\n");
-            uint16_t send_size = htons(num_elements);
-            send(client_fd, &send_size, sizeof(uint16_t), 0);
-            
-            for(int i = 0; i < num_elements; i++) {
-                uint32_t num = htonl(numbers[i]);
-                if (send(client_fd, &num, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
-                    printf("Error sending sorted number %d\n", i+1);
-                    break;
-                }
-                printf("Sent sorted number %d: %d\n", i+1, numbers[i]);
-            }
+        printf("Sorting %d numbers...\n", num_elements);
+        insertion_sort(numbers, num_elements);
+        
+        printf("Sending sorted numbers back...\n");
+        // Convert to network byte order
+        for(int i = 0; i < num_elements; i++) {
+            ((uint32_t*)numbers)[i] = htonl(numbers[i]);
+        }
+
+        if (send(client_fd, numbers, num_elements * sizeof(uint32_t), 0) != num_elements * sizeof(uint32_t)) {
+            perror("Error sending sorted numbers");
         }
 
         free(numbers);
