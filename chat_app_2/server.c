@@ -19,6 +19,7 @@ send the next message.
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <asm-generic/socket.h>
 
 #define PORT 8080
 #define MAX 1024
@@ -77,7 +78,8 @@ int main()
 	{
 	    printf("Server: Bye\n");
 	    send(new_socket, "Bye", strlen("Bye"), 0);
-	    break;
+	    // break;
+        exit(0);
 	}
 	printf("Server: ");
 	fgets(buffer, MAX, stdin);

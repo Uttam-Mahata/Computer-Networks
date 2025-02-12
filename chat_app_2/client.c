@@ -21,55 +21,69 @@ send the next message.
 #include <netinet/in.h>
 
 #define PORT 8080
+#define BUFFER_SIZE 1024
 
-int main()
-{
+int main() {
     int client_socket;
     struct sockaddr_in server_address;
-    char buffer[1024] = {0};
-    char message[1024] = {0};
+    char buffer[BUFFER_SIZE] = {0};
+    char message[BUFFER_SIZE] = {0};
 
-    // Create a socket
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-	perror("Socket creation failed");
-	exit(EXIT_FAILURE);
+    // Create socket
+    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
     }
 
-    // Initialize the server address
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(PORT);
 
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    if (inet_pton(AF_INET, "192.168.29.22", &server_address.sin_addr) <= 0)
-    {
-	perror("Invalid address/ Address not supported");
-	exit(EXIT_FAILURE);
+    // Convert IPv4 address from text to binary
+    if (inet_pton(AF_INET, "127.0.0.1", &server_address.sin_addr) <= 0) {
+        perror("Invalid address");
+        exit(EXIT_FAILURE);
     }
 
-    // Connect to the server
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
-    {
-	perror("Connection failed");
-	exit(EXIT_FAILURE);
+    // Connect to server
+    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
     }
 
-    // Chat
-    while (1)
-    {
-	printf("Enter a message: ");
-	fgets(message, 1024, stdin);
-	send(client_socket, message, strlen(message), 0);
-	printf("Message sent\n");
+    printf("Connected to server. Start chatting (type 'Bye' to exit)!\n");
 
-	recv(client_socket, buffer, 1024, 0);
-	printf("Server: %s\n", buffer);
+    // Chat loop
+    while (1) {
+        memset(message, 0, BUFFER_SIZE);
+        memset(buffer, 0, BUFFER_SIZE);
 
-	if (strncmp(buffer, "Bye", 3) == 0)
-	{
-	    printf("Chat session closed\n");
-	    break;
-	}
+        // Get user input
+        printf("Enter message: ");
+        fgets(message, BUFFER_SIZE, stdin);
+        
+        // Send message
+        send(client_socket, message, strlen(message), 0);
+
+        // Check if client wants to end chat
+        if (strncmp(message, "Bye", 3) == 0) {
+            printf("Chat session closed\n");
+            break;
+        }
+
+        // Receive response
+        int bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
+        if (bytes_received <= 0) {
+            printf("Server disconnected\n");
+            break;
+        }
+
+        printf("Server: %s", buffer);
+
+        // Check if server wants to end chat
+        if (strncmp(buffer, "Bye", 3) == 0) {
+            printf("Chat session closed\n");
+            break;
+        }
     }
 
     close(client_socket);
