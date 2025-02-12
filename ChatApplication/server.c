@@ -4,12 +4,13 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define MAX_BUFFER 1024
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <port>\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <ip> <port>\n", argv[0]);
         exit(1);
     }
 
@@ -30,11 +31,11 @@ Returns file descriptor or 0 on error
         exit(1);
     }
 
-
+printf("Socket created\n");
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(atoi(argv[1])); /* Convert port to network byte order */
+    server_addr.sin_addr.s_addr = inet_addr(argv[1]); /* Convert IP address to network byte order */
+    server_addr.sin_port = htons(atoi(argv[2])); /* Convert port to network byte order */
 
     
 /*
@@ -47,32 +48,27 @@ Returns -1 on error
         perror("Bind failed");
         exit(1);
     }
-
+printf("Server binded\n");
 /*
 Listening for Connections
 Prepare to accept connections on socket FD.
 N connection requests will be queued before further requests are refused.
 Returns 0 on success, -1 for errors.
 */
-    if (listen(server_fd, 1) < 0) {
+    if (listen(server_fd, 10) < 0) {
         perror("Listen failed");
         exit(1);
     }
 
-    printf("Server listening on port %s\n", argv[1]);
+    printf("Server listening on port %s\n", argv[2]);
 
-/*
-Accepting Connections
-Server blocks/waits for incoming client connection
-accept() creates new socket specifically for this client
-Returns new file descriptor client_fd for client communication
-Stores client's address info in client_addr
-*/
-    if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len)) < 0) {
+    if((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len)) < 0) {
         perror("Accept failed");
         exit(1);
     }
 
+
+printf("Accepted client\n");
 /*
 Server waits to receive data from client
 Data stored in buffer
@@ -80,7 +76,7 @@ bytes_received contains number of bytes received
 MAX_BUFFER limits maximum receivable data
 */
 
-    ssize_t bytes_received = recv(client_fd, buffer, MAX_BUFFER, 0);
+    ssize_t bytes_received = read(client_fd, buffer, MAX_BUFFER);
     if (bytes_received > 0) {
         buffer[bytes_received] = '\0';
         printf("Received message: %s\n", buffer);
