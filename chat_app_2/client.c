@@ -52,26 +52,20 @@ int main() {
 
     printf("Connected to server. Start chatting (type 'Bye' to exit)!\n");
 
+    // Chat loop
     while (1) {
         memset(message, 0, BUFFER_SIZE);
         memset(buffer, 0, BUFFER_SIZE);
 
+        // Get user input
         printf("Enter message: ");
         fgets(message, BUFFER_SIZE, stdin);
-        message[strcspn(message, "\n")] = 0;  // Remove newline
-
+        
+        // Send message
         send(client_socket, message, strlen(message), 0);
 
-        if (strcmp(message, "Bye") == 0) {
-            printf("Sending Bye to server. Waiting for confirmation...\n");
-            
-            // Wait for server's Bye response
-            int bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
-            if (bytes_received > 0) {
-                buffer[bytes_received] = 0;
-                printf("Server: %s\n", buffer);
-            }
-            
+        // Check if client wants to end chat
+        if (strncmp(message, "Bye", 3) == 0) {
             printf("Chat session closed\n");
             break;
         }
@@ -83,16 +77,17 @@ int main() {
             break;
         }
 
-        buffer[bytes_received] = 0;  // Null terminate
-        printf("Server: %s\n", buffer);
+        printf("Server: %s", buffer);
 
-        if (strcmp(buffer, "Bye") == 0) {
-            printf("Server sent Bye. Closing connection...\n");
+        // Check if server wants to end chat
+        if (strncmp(buffer, "Bye", 3) == 0) {
+            printf("Chat session closed\n");
             break;
         }
     }
 
     close(client_socket);
-    printf("Client terminated.\n");
     return 0;
 }
+
+
