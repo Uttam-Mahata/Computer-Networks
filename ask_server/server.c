@@ -10,7 +10,6 @@
 
 #define PORT 8888
 #define BUFFER_SIZE 1024
-#define SERVER_NAME "TimeServer_v1.0"
 
 void handle_client_request(int client_socket, int query_type) {
     char response[BUFFER_SIZE] = {0};
@@ -32,7 +31,9 @@ void handle_client_request(int client_socket, int query_type) {
             break;
             
         case 3: // Server name
-            strncpy(response, SERVER_NAME, BUFFER_SIZE);
+            if (gethostname(response, BUFFER_SIZE) != 0) {
+                strncpy(response, "Unknown host", BUFFER_SIZE);
+            }
             printf("Sending server name: %s\n", response);
             break;
             
