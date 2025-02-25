@@ -34,9 +34,9 @@ In Ethernet (IEEE 802.3), if a station detects a collision, it follows these ste
 5. After **16 attempts**, the sender aborts the transmission.
 
 #### **Formula:**
-\[
+$$
 \text{Backoff Time} = \text{Random}(0, 2^n - 1) \times \text{Slot Time}
-\]
+$$
 - `n` = Number of transmission attempts (up to 16)
 - `Slot Time` = Minimum time required to detect a collision
 
