@@ -1,142 +1,65 @@
-# TCP Chat & Time Server Applications
+# Socket Programming Examples
 
-A collection of TCP-based applications implemented in C:
-- Version 1: Simple message exchange
-- Version 2: Interactive chat session
-- Time Server: Server time request/response
+This repository contains several examples of socket programming in C. Each example demonstrates a different concept or application.
 
-## Prerequisites
+## Examples
 
-- GCC compiler
-- Linux/Unix environment
-- Basic understanding of TCP/IP networking
+### Chat Application
 
-## Project Structure
+A simple TCP client-server chat application.
 
-```
-.
-├── chat_app_v1.c        # Server application (Version 1)
-├── client_chat_app_v1.c # Client application (Version 1)
-├── chat_app_v2.c        # Server application (Version 2)
-├── client_chat_app_v2.c # Client application (Version 2)
-├── time_server.c        # Time server application
-└── time_client.c        # Time client application
-```
+*   **Phase 1:** Basic message exchange with a predefined message.
+*   **Phase 2:** Interactive chat between client and server.
 
-## Version 1: Simple Message Exchange
+See `ChatApplication/Readme.md` for more details.
 
-This version demonstrates basic TCP communication where:
-- Client sends "Hello World!" to server
-- Server receives and displays the message
-- Server sends back the same message
-- Client receives and displays the message
+### Time Server Application
 
-### Compilation
-```bash
-gcc chat_app_v1.c -o server_v1
-gcc client_chat_app_v1.c -o client_v1
-```
+A TCP client-server application that synchronizes time between the client and server.
 
-### Running
-1. Start server:
-```bash
-./server_v1
-```
-2. In another terminal, start client:
-```bash
-./client_v1
-```
+*   Client sends a request to the server.
+*   Server responds with its current time.
 
-## Version 2: Interactive Chat
+See `TimeOfServer/Readme.md` for more details.
 
-This version implements a full chat application where:
-- Client and server can exchange messages alternatively
-- Each party must wait for the other's response before sending next message
-- Chat session ends when either party types "Bye"
+### Sorter Application
 
-### Compilation
-```bash
-gcc chat_app_v2.c -o server_v2
-gcc client_chat_app_v2.c -o client_v2
-```
+A TCP server application that sorts a set of integer elements provided by the client.
 
-### Running
-1. Start server:
-```bash
-./server_v2
-```
-2. In another terminal, start client:
-```bash
-./client_v2
-```
+*   Client sends a list of integers to the server.
+*   Server sorts the integers using insertion sort.
+*   Server sends the sorted list back to the client.
 
-## Time Server Application
+See `SorterApplication/Readme.md` for more details.
 
-This version implements a simple time server where:
-- Client sends "What's the time?" message
-- Server responds with its current time
-- Client displays the received time
+## Problem 1
 
-### Compilation
-```bash
-gcc time_server.c -o time_server
-gcc time_client.c -o time_client
-```
+A basic TCP client-server application for message exchange.
 
-### Running
-1. Start time server:
-```bash
-./time_server
-```
-2. In another terminal, start time client:
-```bash
-./time_client
-```
-3. Enter the server's IP address when prompted
+## Problem 2
 
-### Protocol
-1. Connection establishment
-2. Client sends "What's the time?" message
-3. Server responds with current time
-4. Connection termination
+A time server application similar to the `TimeServer` example, but potentially with different implementation details.
 
-## Configuration
+## Problem 3
 
-### Default Settings
-- Port: 4444
-- Server IP: Currently set to "10.2.81.238" (modify in client code)
-- Maximum message length: 200 characters
+A sorting server application similar to the `SorterApplication` example, but potentially with different implementation details.
 
-### Modifying Server IP
-Change the IP address in client applications:
-```c
-serverAddress.sin_addr.s_addr = inet_addr("YOUR_SERVER_IP");
-```
+## Usage
 
-## Protocol
+Each example has its own directory with a `Readme.md` file containing specific instructions on how to build and run the application.  Generally, you will need to:
 
-1. Connection establishment
-2. Message exchange:
-   - Client sends message
-   - Server receives and displays
-   - Server sends response
-   - Client receives and displays
-3. Session termination:
-   - Either party sends "Bye"
-   - Both applications close the connection
+1.  Compile the server and client programs using a C compiler (e.g., GCC).
+2.  Run the server program, specifying a port number as a command-line argument.
+3.  Run the client program, specifying the server's IP address and port number as command-line arguments.
 
-## Error Handling
+## File Structure
 
-The application handles basic errors including:
-- Socket creation failure
-- Connection failure
-- Binding failure
-- Listen failure
-
-## Notes
-
-- Always start the server before the client
-- Version 2 requires alternating messages between client and server
-- Type "Bye" to end the chat session
-- Time server automatically closes connection after sending time
-- Make sure to use correct server IP address in client applications
+*   `.github/workflows/`: Contains GitHub Actions workflow for building and deploying a Jekyll site to GitHub Pages.
+*   `.vscode/`: Contains VS Code settings.
+*   `ChatApplication/`: Contains the chat application source code and documentation.
+*   `Problem-1/`: Contains the source code for Problem 1.
+*   `Problem-2/`: Contains the source code for Problem 2.
+*   `Problem-3/`: Contains the source code for Problem 3.
+*   `SorterApplication/`: Contains the sorter application source code and documentation.
+*   `TimeOfServer/`: Contains the time server application source code and documentation.
+*   `Readme.md`: This file.
