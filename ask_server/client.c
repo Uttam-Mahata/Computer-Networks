@@ -48,7 +48,7 @@ int main() {
         serv_addr.sin_port = htons(PORT);
         
         // Convert IP address from string to binary
-        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        if (inet_pton(AF_INET, "192.168.29.22", &serv_addr.sin_addr) <= 0) {
             perror("Invalid address");
             exit(EXIT_FAILURE);
         }
