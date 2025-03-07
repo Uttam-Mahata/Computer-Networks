@@ -11,13 +11,12 @@
 
 #define PORT 3490
 
-
 typedef struct pdu {
 int message_type[2]; /*Represents type of message. value = 1 to represent payload packet.; value =2 if server founds it as error packet*/
 uid_t seq_no; /*Unique Identifier*/
 int ttl; /*A non negative even integer initialized with value T*/
-int payload; /*Length of Payload Bytes*/
-int payload_bytes; /*Arbitrary Payload Bytes*/
+int payload; /*Length of Payload Bytes = P */
+int payload_bytes; /*Arbitrary Payload Bytes of size P*/
 } pdu;
 
 int main(int argc, char *argv[]) {
@@ -65,11 +64,47 @@ for (int i = 0; i < num_packets; i++) {
 	    exit(1);
 	}
     printf("Packet %d sent successfully\n", i + 1);
+
+    // Get Same Datagram back from server
+    char buffer[sizeof(packet)];
+    socklen_t addr_len = sizeof(server_addr);
+    if (recvfrom(sock_fd, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &addr_len) < 0) {
+        perror("Packet receiving failed");
+        exit(1);
+    }
+
+    // Process the received packet
+    pdu *received_packet = (pdu *)buffer;
+    if (received_packet->message_type[0] == 2) {
+        printf("Error packet received: %d\n", received_packet->message_type[1]);
+        switch (received_packet->message_type[1]) {
+            case 1:
+                printf("Error: TOO SMALL PACKET RECEIVED\n");
+                break;
+            case 2:
+                printf("Error: PAYLOAD LENGTH AND PAYLOAD INCONSISTENT\n");
+                break;
+            case 3:
+                printf("Error: TOO LARGE PAYLOAD LENGTH\n");
+                break;
+            case 4:
+                printf("Error: TTL VALUE IS NOT EVEN\n");
+                break;
+            default:
+                printf("Unknown error code\n");
+        }
+        break;
+    }
+    printf("Received packet with seq_no: %d\n", received_packet->seq_no);
+    printf("TTL: %d\n", received_packet->ttl);
+    printf("Payload: %d\n", received_packet->payload);
+    printf("Payload bytes: %d\n", received_packet->payload_bytes);
+    printf("Packet %d received successfully\n", i + 1);
     packet.seq_no++;
     packet.payload_bytes += packet.payload;
     packet.payload = 0;
     packet.ttl -= 2;
-    
+
     if (packet.ttl < 0) {
         printf("TTL expired, stopping packet generation.\n");
         break;
