@@ -2,80 +2,68 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <time.h>
-#include <asm-generic/socket.h>
 
-#define PORT 8888
-#define BUFFER_SIZE 1024
+#define MAX_BUFFER 1024
 
-int main() {
-    int server_fd, new_socket, valread;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[BUFFER_SIZE] = {0};
-    char time_str[BUFFER_SIZE] = {0};
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <port>\n", argv[0]);
+        exit(1);
+    }
+
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    char buffer[MAX_BUFFER] = {0};
+    char time_str[MAX_BUFFER] = {0};
+    socklen_t client_len = sizeof(client_addr);
 
     // Create socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Socket creation failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    // Set socket options
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("setsockopt failed");
-        exit(EXIT_FAILURE);
-    }
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(atoi(argv[1]));
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    // Bind socket
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    // Listen for connections
-    if (listen(server_fd, 3) < 0) {
+    if (listen(server_fd, 1) < 0) {
         perror("Listen failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    printf("Server is listening on port %d...\n", PORT);
+    printf("Time Server listening on port %s\n", argv[1]);
 
     while(1) {
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+        if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len)) < 0) {
             perror("Accept failed");
-            exit(EXIT_FAILURE);
+            continue;
         }
 
-        printf("New client connected\n");
-        
-        valread = read(new_socket, buffer, BUFFER_SIZE);
-        printf("Received message: %s\n", buffer);
-
-        if (strcmp(buffer, "What's the time?") == 0) {
-            time_t current_time;
-            struct tm *time_info;
+        // Receive client request
+        ssize_t bytes_received = recv(client_fd, buffer, MAX_BUFFER, 0);
+        if (bytes_received > 0) {
+            // Get current time
+            time_t now = time(NULL);
+            strftime(time_str, MAX_BUFFER, "%Y-%m-%d %H:%M:%S", localtime(&now));
             
-            time(&current_time);
-            time_info = localtime(&current_time);
-            
-            strftime(time_str, BUFFER_SIZE, "%Y-%m-%d %H:%M:%S", time_info);
-            send(new_socket, time_str, strlen(time_str), 0);
-            printf("Sent time to client: %s\n", time_str);
+            // Send time to client
+            send(client_fd, time_str, strlen(time_str), 0);
+            printf("Time sent to client: %s\n", time_str);
         }
 
-        close(new_socket);
-        printf("Client disconnected\n");
+        close(client_fd);
+        exit(0);
     }
 
+    close(server_fd);
     return 0;
 }
-

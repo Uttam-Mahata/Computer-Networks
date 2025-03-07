@@ -1,58 +1,56 @@
-/*
- * Develop a simple TCP Client-Server application where the client app sends a predefined text
-message "Hello World!!" to the server app running in a user-defined port of your choice.
-Upon receiving that message, the server app forwards the same message to the client app.
-Both server and client applications print the message.
-* Author: Uttam Mahata
-* Client.c
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#define PORT 8080
+#define MAX_BUFFER 1024
 
-int main() {
-    int client_socket;
-    struct sockaddr_in server_address;
-    char buffer[1024] = {0};
-    char *hello = "Hello World!!";
-
-    // Create a socket
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-	perror("Socket creation failed");
-	exit(EXIT_FAILURE);
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Usage: %s <ip> <port>\n", argv[0]);
+        exit(1);
     }
 
-    // Initialize the server address
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
+    int sock_fd;
+    struct sockaddr_in server_addr;
+    char buffer[MAX_BUFFER] = {0};
+    char *message = "Hello World!!";
 
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    if (inet_pton(AF_INET, "192.168.29.22", &server_address.sin_addr) <= 0) {
-	perror("Invalid address/ Address not supported");
-	exit(EXIT_FAILURE);
+    // Create socket
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        exit(1);
     }
 
-    // Connect to the server
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-	perror("Connection failed");
-	exit(EXIT_FAILURE);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(atoi(argv[2]));
+
+    // Convert IP address
+    if (inet_pton(AF_INET, argv[1], &server_addr.sin_addr) <= 0) {
+        perror("Invalid address");
+        exit(1);
     }
 
-    // Send the message to the server
-    send(client_socket, hello, strlen(hello), 0);
-    printf("Message sent to the server\n");
+    // Connect to server
+    if (connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection failed");
+        exit(1);
+    }
 
-    // Receive the message from the server
-    read(client_socket, buffer, 1024);
-    printf("Message from the server: %s\n", buffer);
+    // Send message
+    printf("Sending message: %s\n", message);
+    send(sock_fd, message, strlen(message), 0);
 
+    // Receive echo
+    ssize_t bytes_received = recv(sock_fd, buffer, MAX_BUFFER, 0);
+    if (bytes_received > 0) {
+        buffer[bytes_received] = '\0';
+        printf("Server echo: %s\n", buffer);
+    }
+
+    close(sock_fd);
     return 0;
 }
-
-

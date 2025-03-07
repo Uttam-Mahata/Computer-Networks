@@ -1,93 +1,72 @@
-/*
- * Basic Chat Application
- * Develop a simple TCP Client-Server application where The client app sends the first
-message it wishes to. Upon receiving that message, the server app prints the received
-message. Then, it sends the response message to the client. This message exchange continues
-until one party (server or client) says "Bye" and closes the chat session. After receiving the
-"Bye" message, another party closes the chat session.
-Note that in this way of chatting, one end cannot send more than one message at a time. On
-sending one message, it has to wait for the response from another party, and then only it can
-send the next message.
-* Author: Uttam Mahata
-* Client.c
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
-#define PORT 8080
-#define BUFFER_SIZE 1024
+#define MAX_BUFFER 1024
 
-int main() {
-    int client_socket;
-    struct sockaddr_in server_address;
-    char buffer[BUFFER_SIZE] = {0};
-    char message[BUFFER_SIZE] = {0};
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Usage: %s <ip> <port>\n", argv[0]);
+        exit(1);
+    }
 
-    // Create socket
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    int sock_fd;
+    struct sockaddr_in server_addr;
+    char buffer[MAX_BUFFER] = {0};
+    char message[MAX_BUFFER];
+
+    // Create socket and connect
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket creation failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(atoi(argv[2]));
 
-    // Convert IPv4 address from text to binary
-    if (inet_pton(AF_INET, "192.168.29.22", &server_address.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, argv[1], &server_addr.sin_addr) <= 0) {
         perror("Invalid address");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    // Connect to server
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+    if (connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Connection failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    printf("Connected to server. Start chatting (type 'Bye' to exit)!\n");
+    printf("Connected to server. Starting chat...\n");
 
-    // Chat loop
     while (1) {
-        memset(message, 0, BUFFER_SIZE);
-        memset(buffer, 0, BUFFER_SIZE);
-
         // Get user input
-        printf("Enter message: ");
-        fgets(message, BUFFER_SIZE, stdin);
-        
+        printf("Client: ");
+        fgets(message, MAX_BUFFER, stdin);
+        message[strcspn(message, "\n")] = 0;
+
         // Send message
-        send(client_socket, message, strlen(message), 0);
+        send(sock_fd, message, strlen(message), 0);
 
-        // Check if client wants to end chat
-        if (strncmp(message, "Bye", 3) == 0) {
-            printf("Chat session closed\n");
+        if (strcmp(message, "Bye") == 0) {
+            printf("Ending chat\n");
             break;
         }
 
-        // Receive response
-        int bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
-        if (bytes_received <= 0) {
-            printf("Server disconnected\n");
-            break;
-        }
+        // Receive server response
+        memset(buffer, 0, MAX_BUFFER);
+        int bytes_received = recv(sock_fd, buffer, MAX_BUFFER, 0);
+        if (bytes_received <= 0) break;
 
-        printf("Server: %s", buffer);
+        printf("Server: %s\n", buffer);
 
-        // Check if server wants to end chat
-        if (strncmp(buffer, "Bye", 3) == 0) {
-            printf("Chat session closed\n");
+        if (strcmp(buffer, "Bye") == 0) {
+            printf("Server ended the chat\n");
             break;
         }
     }
 
-    close(client_socket);
+    close(sock_fd);
     return 0;
 }
-
-
