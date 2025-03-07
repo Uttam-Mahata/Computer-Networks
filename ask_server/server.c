@@ -20,7 +20,7 @@ void handle_client_request(int client_socket, int query_type) {
     time_info = localtime(&current_time);
     
     switch(query_type) {
-        case 1: // Time only
+        case 1:
             strftime(response, BUFFER_SIZE, "%H:%M:%S", time_info);
             printf("Sending time: %s\n", response);
             break;
