@@ -4,121 +4,144 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 
-#define MAX_PACKET_SIZE 2048
-#define HEADER_SIZE 8  // MT(1) + SN(2) + TTL(1) + PL(4)
-#define ERROR_PACKET_SIZE 4  // MT(1) + SN(2) + EC(1)
+#define MAX_BUFFER 2048
 
-// Error codes
-#define ERR_TOO_SMALL 1
-#define ERR_PAYLOAD_INCONSISTENT 2
-#define ERR_TOO_LARGE_PAYLOAD 3
-#define ERR_TTL_NOT_EVEN 4
+typedef struct {
+    uint8_t mt;      /* Message Type (1 byte) */
+    uint16_t sn;     /* Sequence Number (2 bytes) */
+    uint8_t ttl;     /* Time-to-live (1 byte) */
+    uint32_t pl;     /* Payload Length (4 bytes) */
+} __attribute__((packed)) packet_header_t;
+
+typedef struct {
+    uint8_t mt;      /* Message Type (1 byte) */
+    uint16_t sn;     /* Sequence Number (2 bytes) */
+    uint8_t ec;      /*Error Code (1 byte)*/
+} __attribute__((packed)) error_packet_t;
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <ServerPort>\n", argv[0]);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    int port = atoi(argv[1]);
+    int server_port = atoi(argv[1]);
     
-    // Create socket
-    int sockfd;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
         perror("Socket creation failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
-
-    // Server address structure
+    
     struct sockaddr_in server_addr, client_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     memset(&client_addr, 0, sizeof(client_addr));
     
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(server_port);
     
-    // Bind socket to address and port
     if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
         close(sockfd);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
     
-    printf("Server is running on port %d...\n", port);
+    unsigned char buffer[MAX_BUFFER];
+    socklen_t client_len = sizeof(client_addr);
     
-    unsigned char buffer[MAX_PACKET_SIZE];
-    unsigned char response[MAX_PACKET_SIZE];
+    printf("Server is running on port %d...\n", server_port);
     
     while (1) {
-        socklen_t client_len = sizeof(client_addr);
+        int bytes_received = recvfrom(sockfd, buffer, MAX_BUFFER, 0, 
+                            (struct sockaddr *)&client_addr, &client_len);
         
-        // Receive packet from client
-        int n = recvfrom(sockfd, buffer, MAX_PACKET_SIZE, 0, 
-                         (struct sockaddr *)&client_addr, &client_len);
-        
-        if (n <= 0) continue;  // Skip if no data received
-        
-        // Check if packet is at least as large as the header
-        if (n < HEADER_SIZE) {
-            // Prepare error packet: Too small packet
-            response[0] = 2;  // MT = 2 (error)
-            memcpy(&response[1], &buffer[1], 2);  // Copy SN
-            response[3] = ERR_TOO_SMALL;
-            
-            sendto(sockfd, response, ERROR_PACKET_SIZE, 0,
-                  (const struct sockaddr *)&client_addr, client_len);
+        if (bytes_received < 0) {
+            perror("Receive failed");
             continue;
         }
         
-        // Extract payload length from the packet
-        int payload_length;
-        memcpy(&payload_length, &buffer[4], 4);
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
+        printf("\n--- Received packet from %s:%d, Size: %d bytes ---\n", 
+               client_ip, ntohs(client_addr.sin_port), bytes_received);
         
-        // Check if packet size matches payload length + header
-        if (n != HEADER_SIZE + payload_length) {
-            // Prepare error packet: Payload inconsistent
-            response[0] = 2;  // MT = 2 (error)
-            memcpy(&response[1], &buffer[1], 2);  // Copy SN
-            response[3] = ERR_PAYLOAD_INCONSISTENT;
-            
-            sendto(sockfd, response, ERROR_PACKET_SIZE, 0,
-                  (const struct sockaddr *)&client_addr, client_len);
+        // Packet Validation
+        if (bytes_received < sizeof(packet_header_t)) {
+            // Packet too small
+            printf("Error: Packet too small (< %lu bytes)\n", sizeof(packet_header_t));
+            error_packet_t error_packet;
+            error_packet.mt = 2;
+            error_packet.sn = ((packet_header_t *)buffer)->sn;
+            error_packet.ec = 1;
+
+            sendto(sockfd, &error_packet, sizeof(error_packet_t), 0,
+                  (struct sockaddr *)&client_addr, client_len);
+            printf("Sent error packet: MT=%d, SN=%d, EC=%d (Packet too small)\n", 
+                   error_packet.mt, error_packet.sn, error_packet.ec);
             continue;
         }
         
-        // Check if payload is too large
+        packet_header_t *packet = (packet_header_t *)buffer;
+        uint32_t payload_length = ntohl(packet->pl);
+        
+        printf("Packet Details: MT=%d, SN=%d, TTL=%d, PL=%u\n", 
+               packet->mt, ntohs(packet->sn), packet->ttl, payload_length);
+        
+        // Checking if received bytes match header + claimed payload size
+        if (bytes_received != sizeof(packet_header_t) + payload_length) {
+            printf("Error: Payload length mismatch (Expected %lu+%u=%lu bytes, Got %d bytes)\n", 
+                   sizeof(packet_header_t), payload_length, sizeof(packet_header_t) + payload_length, bytes_received);
+            error_packet_t error_packet;
+            error_packet.mt = 2;
+            error_packet.sn = ntohs(packet->sn);
+            error_packet.ec = 2;  
+            
+            sendto(sockfd, &error_packet, sizeof(error_packet_t), 0,
+                  (struct sockaddr *)&client_addr, client_len);
+            printf("Sent error packet: MT=%d, SN=%d, EC=%d (Payload length mismatch)\n", 
+                   error_packet.mt, error_packet.sn, error_packet.ec);
+            continue;
+        }
+        
+        // Checking if payload is too large (> 1000)
         if (payload_length > 1000) {
-            // Prepare error packet: Too large payload
-            response[0] = 2;  // MT = 2 (error)
-            memcpy(&response[1], &buffer[1], 2);  // Copy SN
-            response[3] = ERR_TOO_LARGE_PAYLOAD;
+            printf("Error: Payload too large (%u > 1000 bytes)\n", payload_length);
+            error_packet_t error_packet;
+            error_packet.mt = 2;
+            error_packet.sn = ntohs(packet->sn);
+            error_packet.ec = 3; 
             
-            sendto(sockfd, response, ERROR_PACKET_SIZE, 0,
-                  (const struct sockaddr *)&client_addr, client_len);
+            sendto(sockfd, &error_packet, sizeof(error_packet_t), 0,
+                  (struct sockaddr *)&client_addr, client_len);
+            printf("Sent error packet: MT=%d, SN=%d, EC=%d (Payload too large)\n", 
+                   error_packet.mt, error_packet.sn, error_packet.ec);
             continue;
         }
         
-        // Check if TTL is even
-        if (buffer[3] % 2 != 0) {
-            // Prepare error packet: TTL not even
-            response[0] = 2;  // MT = 2 (error)
-            memcpy(&response[1], &buffer[1], 2);  // Copy SN
-            response[3] = ERR_TTL_NOT_EVEN;
+        // Checking if TTL is even
+        if (packet->ttl % 2 != 0) {
+            printf("Error: TTL is odd (%d)\n", packet->ttl);
+            error_packet_t error_packet;
+            error_packet.mt = 2;
+            error_packet.sn = ntohs(packet->sn);
+            error_packet.ec = 4;  
             
-            sendto(sockfd, response, ERROR_PACKET_SIZE, 0,
-                  (const struct sockaddr *)&client_addr, client_len);
+            sendto(sockfd, &error_packet, sizeof(error_packet_t), 0,
+                  (struct sockaddr *)&client_addr, client_len);
+            printf("Sent error packet: MT=%d, SN=%d, EC=%d (TTL is odd)\n", 
+                   error_packet.mt, error_packet.sn, error_packet.ec);
             continue;
         }
         
-        // If all checks pass, decrement TTL and forward packet back
-        memcpy(response, buffer, n);
-        response[3]--;  // Decrement TTL
+        // Decrement TTL and send back
+        packet->ttl--;
+        printf("Valid packet! Decrementing TTL from %d to %d and forwarding\n", packet->ttl + 1, packet->ttl);
         
-        sendto(sockfd, response, n, 0,
-              (const struct sockaddr *)&client_addr, client_len);
+        sendto(sockfd, buffer, bytes_received, 0, 
+               (struct sockaddr *)&client_addr, client_len);
+        printf("Forwarded packet to client (%d bytes)\n", bytes_received);
     }
     
     close(sockfd);
